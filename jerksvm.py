@@ -53,8 +53,8 @@ n_features = feature_per_axis * axis * nr_boundaries # size of the feature vecto
 trained_patterns = [] # patterns * repeats sized list
 counter_examples = [] # numCounters sized list
 
-# good_trained_patterns = [] #true trained pattern
-# good_counter_examples = [] #true trained pattern
+good_trained_patterns = [] #true trained pattern
+good_counter_examples = [] #true trained pattern
 
 exitBoolean = False 
 lock = threading.Lock() # used for the thread, allows to wait for ENTER key press to start and stop listening during training
@@ -62,6 +62,8 @@ lock = threading.Lock() # used for the thread, allows to wait for ENTER key pres
 counter = 1 # counter that labels the data as it enters the file
 
 stopped_arduino = True  # at the start, we do not receive data .. we wait to tell Arduino when to start
+
+RELOAD_GOOD_PARAMETERS = True # ONLY CHANGE IF YOU WANT TO RELOAD THE PARAMETERS FROM THE GOOD SET ONTO THE CHIP
 
 # This is the thread, simultaneously runs along side the training below and listens for an ENTER keypress
 def inputQuit():
@@ -97,65 +99,67 @@ for i in range(patterns):
 		filename = "pattern" + str(i+1) + "_" + str(j+1) + ".csv"
 
 		#print('State of stopped_arduino flag is: ' + str(stopped_arduino))
+		if (RELOAD_GOOD_PARAMETERS == False):
+			with open(filename, "w+") as f:
+				userInput1 = input("Press ENTER when ready")
 
-		with open(filename, "w+") as f:
-			userInput1 = input("Press ENTER when ready")
+				if (userInput1 == ''): 
+					quit_thread = threading.Thread(target=inputQuit, args=[])
+					quit_thread.start()
 
-			if (userInput1 == ''): 
-				quit_thread = threading.Thread(target=inputQuit, args=[])
-				quit_thread.start()
+					checkFlag = False
 
-				checkFlag = False
+					if stopped_arduino:
+						#print("Sending to Arduino END_WAIT ... changing 'stopped_arduino' to False")
+						ser.write(b'END_WAIT')
+						stopped_arduino = False
 
-				if stopped_arduino:
-					#print("Sending to Arduino END_WAIT ... changing 'stopped_arduino' to False")
-					ser.write(b'END_WAIT')
-					stopped_arduino = False
+					#ard_counter = 1
+					#millis = int(round(time.time() * 1000))
 
-				#ard_counter = 1
-				#millis = int(round(time.time() * 1000))
+					while(checkFlag == False): 
 
-				while(checkFlag == False): 
-
-					try:
-						if ser.in_waiting == 0:
-							continue
-
-						line = ser.readline().strip().decode('ascii') # reads the output of the Arduino
-					except:
-						continue
-
-					#print(line)
-					# communication between Python and Arduino, this is how we know when to start and stop
-					if line.startswith( 'SYS:START_WAIT' ):
-						checkFlag = True
-						stopped_arduino = True
-						exitBoolean = True
-						break
-
-					if line.startswith( 'SYS:' ):
-						continue
-					
-					if len(line) > 0:
-						# edits the output from the chip with the count
 						try:
-							line = str(counter) + line[line.index(","):]
-							print(line)
-							counter = counter+1
+							if ser.in_waiting == 0:
+								continue
+
+							line = ser.readline().strip().decode('ascii') # reads the output of the Arduino
 						except:
 							continue
 
-					f.write(str(line) + "\n") # writes 
+						#print(line)
+						# communication between Python and Arduino, this is how we know when to start and stop
+						if line.startswith( 'SYS:START_WAIT' ):
+							checkFlag = True
+							stopped_arduino = True
+							exitBoolean = True
+							break
 
-					with lock:
-						checkFlag = exitBoolean
+						if line.startswith( 'SYS:' ):
+							continue
+						
+						if len(line) > 0:
+							# edits the output from the chip with the count
+							try:
+								line = str(counter) + line[line.index(","):]
+								print(line)
+								counter = counter+1
+							except:
+								continue
 
-				counter = 1
+						f.write(str(line) + "\n") # writes 
+
+						with lock:
+							checkFlag = exitBoolean
+
+					counter = 1
 
 		exitBoolean = False
 		# creates a vector from the file created by writing the outputs of the chip
 		trained_patterns += [pd.read_csv(filename, names=['count', 'time_ms', 'a_x', 'a_dot_x', 'a_ddot_x','a_y', 'a_dot_y', 'a_ddot_y', 'a_z', 'a_dot_z', 'a_ddot_z'])]
-		# good_trained_patterns += [pd.read_csv('good'+filename, names=['count', 'time_ms', 'a_x', 'a_dot_x', 'a_ddot_x','a_y', 'a_dot_y', 'a_ddot_y', 'a_z', 'a_dot_z', 'a_ddot_z'])]
+		
+		if (RELOAD_GOOD_PARAMETERS == True):
+			good_trained_patterns += [pd.read_csv('good'+filename, names=['count', 'time_ms', 'a_x', 'a_dot_x', 'a_ddot_x','a_y', 'a_dot_y', 'a_ddot_y', 'a_z', 'a_dot_z', 'a_ddot_z'])]
 
 	print("Training Pattern " + str(i+1) + " complete!")
 
@@ -167,58 +171,61 @@ print("STARTING COUNTER EXAMPLE TRAINING:")
 for i in range(numCounters):
 	print("Training Counter-Example: " + str(i+1) + " out of " + str(numCounters))
 	filename = "counter" + str(i+1) + ".csv"
-	with open(filename, "w+") as f:
-		userInput1 = input("Press ENTER when ready")
-		ser.reset_input_buffer()
-		if (userInput1 == ''):
-			quit_thread = threading.Thread(target=inputQuit, args=[])
-			quit_thread.start()
-			checkFlag = False
+	if (RELOAD_GOOD_PARAMETERS == False):
+		with open(filename, "w+") as f:
+			userInput1 = input("Press ENTER when ready")
+			ser.reset_input_buffer()
+			if (userInput1 == ''):
+				quit_thread = threading.Thread(target=inputQuit, args=[])
+				quit_thread.start()
+				checkFlag = False
 
-			if stopped_arduino:
-				ser.write(b'END_WAIT')
-				stopped_arduino = False
+				if stopped_arduino:
+					ser.write(b'END_WAIT')
+					stopped_arduino = False
 
-			while(checkFlag == False):
-
-				try:
-					if ser.in_waiting == 0:
-						continue
-
-					line = ser.readline().strip().decode('ascii')
-				except:
-					continue
-
-				#print(line)
-
-				if line.startswith( 'SYS:START_WAIT' ):
-					checkFlag = True
-					stopped_arduino = True
-					exitBoolean = True
-					break
-
-				if line.startswith( 'SYS:' ):
-					continue
-				
-				if len(line) > 0:
+				while(checkFlag == False):
 
 					try:
-						line = str(counter) + line[line.index(","):]
-						print(line)
-						counter = counter + 1
+						if ser.in_waiting == 0:
+							continue
+
+						line = ser.readline().strip().decode('ascii')
 					except:
 						continue
 
-				f.write(str(line) + "\n")
-				
-				with lock:
-					checkFlag = exitBoolean
+					#print(line)
 
-			counter = 1
+					if line.startswith( 'SYS:START_WAIT' ):
+						checkFlag = True
+						stopped_arduino = True
+						exitBoolean = True
+						break
+
+					if line.startswith( 'SYS:' ):
+						continue
+					
+					if len(line) > 0:
+
+						try:
+							line = str(counter) + line[line.index(","):]
+							print(line)
+							counter = counter + 1
+						except:
+							continue
+
+					f.write(str(line) + "\n")
+					
+					with lock:
+						checkFlag = exitBoolean
+
+				counter = 1
 
 	exitBoolean = False
 	counter_examples += [pd.read_csv(filename, names=['count', 'time_ms', 'a_x', 'a_dot_x', 'a_ddot_x','a_y', 'a_dot_y', 'a_ddot_y', 'a_z', 'a_dot_z', 'a_ddot_z'], skiprows=2)]
-	# good_counter_examples += [pd.read_csv('good'+filename, names=['count', 'time_ms', 'a_x', 'a_dot_x', 'a_ddot_x','a_y', 'a_dot_y', 'a_ddot_y', 'a_z', 'a_dot_z', 'a_ddot_z'], skiprows=2)]
+	
+	if (RELOAD_GOOD_PARAMETERS == True):
+		good_counter_examples += [pd.read_csv('good'+filename, names=['count', 'time_ms', 'a_x', 'a_dot_x', 'a_ddot_x','a_y', 'a_dot_y', 'a_ddot_y', 'a_z', 'a_dot_z', 'a_ddot_z'], skiprows=2)]
 
 print("TRAINING COMPLETE")
 
@@ -230,7 +237,7 @@ x_plot = 'count'
 
 # creates a feature vector and labels vector for training the SVM and then classification
 feature_vectors = np.zeros((repeats*(patterns+1), n_features))
-# good_feature_vectors = np.zeros((repeats*(patterns+1), n_features))
+good_feature_vectors = np.zeros((repeats*(patterns+1), n_features))
 labels_vector = np.zeros((repeats*(patterns+1), ), dtype=int)
 for i in range(patterns+1):
 	labels_vector[i*repeats:(i+1)*repeats] = i # fills the labels_vector with the pattern number (first set of repeats is pattern 0, etc.)
@@ -266,41 +273,51 @@ for didx, dataset in enumerate(trained_patterns + counter_examples): #change bac
 #labels_vector[labels_vector == 3] = 0	
 
 # same as above, but used to create 'the best' training set I've had so far - this is for testing 
-# for didx, dataset in enumerate(good_trained_patterns + good_counter_examples): #change back to name w/o good_
-# 	curr_data = dataset.copy()
-# 	curr_data[x_plot] -= curr_data[x_plot].iloc[0]
 
-# 	boundaries = np.linspace(0, len(curr_data), nr_boundaries+1) # 6 means partition time into 5 groups
-# 	for idx in range(len(boundaries)-1):
-# 		data_chunk = curr_data[int(boundaries[idx]):int(boundaries[idx+1])]
+if (RELOAD_GOOD_PARAMETERS == True):
+	for didx, dataset in enumerate(good_trained_patterns + good_counter_examples): #change back to name w/o good_
+		curr_data = dataset.copy()
+		curr_data[x_plot] -= curr_data[x_plot].iloc[0]
 
-# 		mean_ax = np.mean(data_chunk['a_x'])
-# 		mean_a_dot_x = np.mean(data_chunk['a_dot_x'])
-# 		mean_a_ddot_x = np.mean(data_chunk['a_ddot_x'])
+		boundaries = np.linspace(0, len(curr_data), nr_boundaries+1) # 6 means partition time into 5 groups
+		for idx in range(len(boundaries)-1):
+			data_chunk = curr_data[int(boundaries[idx]):int(boundaries[idx+1])]
 
-# 		mean_ay = np.mean(data_chunk['a_y'])
-# 		mean_a_dot_y = np.mean(data_chunk['a_dot_y'])
-# 		mean_a_ddot_y = np.mean(data_chunk['a_ddot_y'])
+			mean_ax = np.mean(data_chunk['a_x'])
+			mean_a_dot_x = np.mean(data_chunk['a_dot_x'])
+			mean_a_ddot_x = np.mean(data_chunk['a_ddot_x'])
 
-# 		mean_az = np.mean(data_chunk['a_z'])
-# 		mean_a_dot_z = np.mean(data_chunk['a_dot_z'])
-# 		mean_a_ddot_z = np.mean(data_chunk['a_ddot_z'])
+			mean_ay = np.mean(data_chunk['a_y'])
+			mean_a_dot_y = np.mean(data_chunk['a_dot_y'])
+			mean_a_ddot_y = np.mean(data_chunk['a_ddot_y'])
 
-# 		good_feature_vectors[didx, idx*feature_per_axis*axis:(idx+1)*feature_per_axis*axis] = [
-# 												  mean_ax, mean_a_dot_x, #mean_a_ddot_x, 
-# 											      mean_ay, mean_a_dot_y, #mean_a_ddot_y, 
-# 												  mean_az, mean_a_dot_z] #mean_a_ddot_z]
+			mean_az = np.mean(data_chunk['a_z'])
+			mean_a_dot_z = np.mean(data_chunk['a_dot_z'])
+			mean_a_ddot_z = np.mean(data_chunk['a_ddot_z'])
+
+			good_feature_vectors[didx, idx*feature_per_axis*axis:(idx+1)*feature_per_axis*axis] = [
+													  mean_ax, mean_a_dot_x, #mean_a_ddot_x, 
+												      mean_ay, mean_a_dot_y, #mean_a_ddot_y, 
+													  mean_az, mean_a_dot_z] #mean_a_ddot_z]
 
 # these were used for normalizing the data - not used anymore
 min_feat_vals = feature_vectors.min(axis=0) 
 peak_to_peak_vals = np.ptp(feature_vectors, axis=0)
 
-#feature_vectors = (feature_vectors - min_feat_vals)/peak_to_peak_vals
+if (RELOAD_GOOD_PARAMETERS == True):
+	min_feat_vals = good_feature_vectors.min(axis=0) 
+	peak_to_peak_vals = np.ptp(good_feature_vectors, axis=0)
+
+# feature_vectors = (feature_vectors - min_feat_vals)/peak_to_peak_vals
 
 # Creation of the SVM - clf.fit generates the relevant parameters for classification
 clf = SVC(kernel='rbf', C = 0.001)
 clf.fit(feature_vectors, labels_vector)
-#clf.predict(trained_patterns + counter_examples)
+if (RELOAD_GOOD_PARAMETERS == False):
+	clf.fit(feature_vectors, labels_vector)
+else:
+	clf.fit(good_feature_vectors, labels_vector)
+# clf.predict(trained_patterns + counter_examples)
 # print(good_feature_vectors.shape, feature_vectors.shape, labels_vector.shape)
 # print('Accuracy is: ', clf.score(feature_vectors, labels_vector))
 
@@ -331,7 +348,7 @@ clf.fit(feature_vectors, labels_vector)
 # 	print('****************')
 
 
-# Writes all relevant parameters and vectors to the chhihp - uses struck.pack and sends majority of data over as floats, some ints
+# Writes all relevant parameters and vectors to the chip - uses struck.pack and sends majority of data over as floats, some ints
 print("++++++++ Writing ++++++++++")
 
 ser.write(struct.pack('<i', clf.support_vectors_.shape[0]))
