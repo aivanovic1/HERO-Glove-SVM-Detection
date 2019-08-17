@@ -13,6 +13,7 @@ Another potential use of this code is to track how many times a user has complet
 Usage:
 
 *** Setup ***
+
 Python Version: 3.7
 Arduino Version: 1.8.9
 
@@ -39,7 +40,7 @@ Arduino Version: 1.8.9
 - The “Good Training Set” parameters are now saved onto the tinyTILE
 - Switch bool FORCE_RETRAIN = false to ensure you don’t retrain the data accidently
 
-  * Understanding the Prediction Results of the “Good Training Set” *
+Understanding the Prediction Results of the “Good Training Set”
   - The tinyTILE at rest will return a NEGATIVE
   - Pronating the tinyTILE will return a GLOVE TRIGGER ON 0
   - Performing a side to side shake with the tinyTILE will return a GLOVE TRIGGER ON 1 (because the tinyTILE’s accelerometer is almost always shaking, or has residual noise; this is the most common prediction)
