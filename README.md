@@ -22,8 +22,7 @@ Arduino Version: 1.8.9
 - Plug in the tinyTILE and install via Board Manager
 - Add curiepme.cpp and curiepmh.h into the same folder as the .ino code: https://github.com/intel/Intel-Pattern-Matching-Technology
 - Then go to Tools -> Manage Libraries -> Install SerialFlash
-- When the code compiles, ignore the warnings: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
-- int f = *(int *)val;
+- When the code compiles, ignore the warnings: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing] int f = *(int *)val;
 - Plug in the tinyTILE
 - Upload the code to the tinyTILE
 
