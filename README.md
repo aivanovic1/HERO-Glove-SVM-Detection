@@ -25,7 +25,6 @@ Arduino Version: 1.8.9
 - When the code compiles, ignore the warnings: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing] int f = *(int *)val;
 - Plug in the tinyTILE
 - Upload the code to the tinyTILE
-
 - Open the Python Code
 - Import libraries as needed (listed at the top of the code)
 
